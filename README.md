@@ -1,2 +1,2 @@
-# tdd clean code workshop result
+# tdd clean code workshop
 
