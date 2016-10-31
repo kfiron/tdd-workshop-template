@@ -5,6 +5,9 @@ import scala.concurrent.duration._
 import org.specs2.specification.Scope
 import com.workshop.framework.FakeClock
 import java.time.{Instant, Clock}
+import com.google.common.cache.{CacheLoader, CacheBuilder, LoadingCache}
+import java.util.concurrent.TimeUnit
+import com.google.common.base.Ticker
 
 class RollingWindowThrottlerTest extends SpecificationWithJUnit {
 
@@ -45,19 +48,25 @@ class RollingWindowThrottler(max: Int,
                              clock: Clock) {
 
   val counter = Counter()
-  val invocations = scala.collection.mutable.HashMap.empty[String, Invocation]
+
+  def defaultCounter(): CacheLoader[String, Counter] = new CacheLoader[String, Counter] {
+    override def load(key: String): Counter = Counter()
+  }
+
+  def throttlingTicker(): Ticker = new Ticker {
+    override def read(): Long = TimeUnit.MILLISECONDS.toNanos(clock.instant().toEpochMilli)
+  }
+
+  val invocations: LoadingCache[String, Counter] = CacheBuilder.newBuilder()
+                    .expireAfterWrite(durationWindow.toMillis, TimeUnit.MILLISECONDS)
+                    .ticker(throttlingTicker())
+                    .build(defaultCounter())
 
   def tryAcquire(key: String): Boolean = {
-    val invocation = invocations.getOrElseUpdate(key, Invocation(clock.instant(), Counter()))
-    if((clock.instant().toEpochMilli - invocation.timestamp.toEpochMilli) > durationWindow.toMillis){
-      invocations -= key
-      tryAcquire(key)
-    } else invocation.counter.incrementAndGet <= max
+    invocations.get(key).incrementAndGet <= max
   }
 
 }
-
-case class Invocation(timestamp: Instant, counter: Counter)
 
 case class Counter(var count: Int = 0) {
   def incrementAndGet: Int = {
