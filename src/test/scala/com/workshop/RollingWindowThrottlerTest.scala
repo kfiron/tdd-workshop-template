@@ -2,19 +2,23 @@ package com.workshop
 
 import org.specs2.mutable.SpecificationWithJUnit
 import scala.concurrent.duration._
+import org.specs2.specification.Scope
 
 class RollingWindowThrottlerTest extends SpecificationWithJUnit{
   
+  trait ThrottlerContext extends Scope{
+    val throttler = new RollingWindowThrottler(max = 1, durationWindow = 1.minute)
+    val ip = "192.168.2.1"
+  }
+
   "Rolling window throttler" should {
-    "Allow single request" in {
-      val throttler = new RollingWindowThrottler(max = 1, durationWindow = 1.minute) 
-      throttler.tryAcquire("192.168.2.1") must beTrue
+    "Allow single request" in new ThrottlerContext {
+      throttler.tryAcquire(ip) must beTrue
     }
-    "Throttle second request" in {
-      val throttler = new RollingWindowThrottler(max = 1, durationWindow = 1.minute)
-      throttler.tryAcquire("192.168.2.1") must beTrue
-      throttler.tryAcquire("192.168.2.1") must beFalse
-    }
+    "Throttle second request" in new ThrottlerContext {
+      throttler.tryAcquire(ip) must beTrue
+      throttler.tryAcquire(ip) must beFalse
+    }        
     
   }
 
