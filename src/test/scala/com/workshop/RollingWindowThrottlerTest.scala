@@ -5,9 +5,7 @@ import scala.concurrent.duration._
 import org.specs2.specification.Scope
 import com.workshop.framework.FakeClock
 import java.time.{Instant, Clock}
-import com.google.common.cache.{CacheLoader, CacheBuilder, LoadingCache}
-import java.util.concurrent.TimeUnit
-import com.google.common.base.Ticker
+import com.google.common.cache.LoadingCache
 
 class RollingWindowThrottlerTest extends SpecificationWithJUnit {
 
@@ -43,34 +41,5 @@ class RollingWindowThrottlerTest extends SpecificationWithJUnit {
 
 }
 
-class RollingWindowThrottler(max: Int,
-                             durationWindow: FiniteDuration,
-                             clock: Clock) {
 
-  val counter = Counter()
 
-  def defaultCounter(): CacheLoader[String, Counter] = new CacheLoader[String, Counter] {
-    override def load(key: String): Counter = Counter()
-  }
-
-  def throttlingTicker(): Ticker = new Ticker {
-    override def read(): Long = TimeUnit.MILLISECONDS.toNanos(clock.instant().toEpochMilli)
-  }
-
-  val invocations: LoadingCache[String, Counter] = CacheBuilder.newBuilder()
-                    .expireAfterWrite(durationWindow.toMillis, TimeUnit.MILLISECONDS)
-                    .ticker(throttlingTicker())
-                    .build(defaultCounter())
-
-  def tryAcquire(key: String): Boolean = {
-    invocations.get(key).incrementAndGet <= max
-  }
-
-}
-
-case class Counter(var count: Int = 0) {
-  def incrementAndGet: Int = {
-    count = count + 1
-    count
-  }
-}
