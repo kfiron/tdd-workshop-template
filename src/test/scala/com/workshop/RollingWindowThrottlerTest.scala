@@ -18,7 +18,12 @@ class RollingWindowThrottlerTest extends SpecificationWithJUnit{
     "Throttle second request" in new ThrottlerContext {
       throttler.tryAcquire(ip) must beTrue
       throttler.tryAcquire(ip) must beFalse
-    }        
+    }  
+    "Allow second request but from different key" in new ThrottlerContext {
+      val anotherIp = "200.200.200.1"
+      throttler.tryAcquire(ip) must beTrue
+      throttler.tryAcquire(anotherIp) must beTrue
+    }
     
   }
 
@@ -27,9 +32,10 @@ class RollingWindowThrottlerTest extends SpecificationWithJUnit{
 class RollingWindowThrottler(max: Int, durationWindow: FiniteDuration) {
   
   val counter = Counter()
+  val invocations = scala.collection.mutable.HashMap.empty[String, Counter]
   
   def tryAcquire(key: String): Boolean = {
-    val invocationCount = counter.incrementAndGet
+    val invocationCount = invocations.getOrElseUpdate(key, Counter()).incrementAndGet
     invocationCount <= max
   }
   
